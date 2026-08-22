@@ -261,20 +261,25 @@ async def event_set_world(interaction: discord.Interaction, event_id: int, world
     await _refresh_message(event)
 
     priority = await db.get_signups(event_id, db.PRIORITY)
-    dm_failed = []
+    dm_blocked = []
+    not_found = []
     for row in priority:
-        member = interaction.guild.get_member(row["user_id"])
-        if member is None:
-            dm_failed.append(row["username"])
+        try:
+            member = await interaction.guild.fetch_member(row["user_id"])
+        except discord.NotFound:
+            not_found.append(row["username"])
             continue
         try:
             await member.send(f"Raid world is {world} {member.mention}")
         except discord.Forbidden:
-            dm_failed.append(row["username"])
+            dm_blocked.append(row["username"])
 
-    summary = f"World set to **{world}**. Notified {len(priority) - len(dm_failed)}/{len(priority)} priority members."
-    if dm_failed:
-        summary += f"\nCouldn't DM: {', '.join(dm_failed)} (they may have DMs closed)."
+    sent_count = len(priority) - len(dm_blocked) - len(not_found)
+    summary = f"World set to **{world}**. Notified {sent_count}/{len(priority)} priority members."
+    if dm_blocked:
+        summary += f"\nDMs closed for: {', '.join(dm_blocked)}."
+    if not_found:
+        summary += f"\nNo longer in this server: {', '.join(not_found)}."
     await interaction.response.send_message(summary, ephemeral=True)
 
 
