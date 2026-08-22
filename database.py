@@ -4,10 +4,14 @@ Uses aiosqlite so all DB calls are non-blocking inside the discord.py event loop
 """
 
 import aiosqlite
+import os
 import time
 from typing import Optional
 
-DB_PATH = "events.db"
+# Locally this defaults to events.db in the project folder. On Railway, set the
+# DB_PATH env var to a path inside your mounted volume (e.g. /app/data/events.db)
+# so the database survives redeploys instead of resetting each time.
+DB_PATH = os.environ.get("DB_PATH", "events.db")
 
 _conn: Optional[aiosqlite.Connection] = None
 
@@ -32,7 +36,8 @@ async def init_db():
             start_ts INTEGER NOT NULL,
             creator_id INTEGER NOT NULL,
             created_at INTEGER NOT NULL,
-            closed INTEGER NOT NULL DEFAULT 0
+            closed INTEGER NOT NULL DEFAULT 0,
+            world TEXT
         )
         """
     )
@@ -50,7 +55,16 @@ async def init_db():
         """
     )
     await _migrate_add_list_type()
+    await _migrate_add_world()
     await _conn.commit()
+
+
+async def _migrate_add_world():
+    """Older DBs (before /event set_world existed) don't have the world column."""
+    cur = await _conn.execute("PRAGMA table_info(events)")
+    columns = [row[1] for row in await cur.fetchall()]
+    if "world" not in columns:
+        await _conn.execute("ALTER TABLE events ADD COLUMN world TEXT")
 
 
 async def _migrate_add_list_type():
@@ -129,6 +143,11 @@ async def get_events_by_guild(guild_id: int):
 
 async def close_event(event_id: int):
     await _conn.execute("UPDATE events SET closed = 1 WHERE id = ?", (event_id,))
+    await _conn.commit()
+
+
+async def set_world(event_id: int, world: str):
+    await _conn.execute("UPDATE events SET world = ? WHERE id = ?", (world, event_id))
     await _conn.commit()
 
 

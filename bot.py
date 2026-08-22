@@ -245,6 +245,39 @@ async def event_remove_priority(interaction: discord.Interaction, event_id: int,
     await interaction.response.send_message(f"Removed {member.display_name} from Priority.", ephemeral=True)
 
 
+@event_group.command(name="set_world", description="[Admin] Set the raid world and notify everyone on Priority")
+@app_commands.describe(event_id="The event ID", world="The world/server number or name")
+async def event_set_world(interaction: discord.Interaction, event_id: int, world: str):
+    event = await db.get_event(event_id)
+    if event is None or event["guild_id"] != interaction.guild_id:
+        await interaction.response.send_message("Event not found.", ephemeral=True)
+        return
+    if not _can_manage(interaction, event):
+        await interaction.response.send_message("Only the creator or a server manager can do that.", ephemeral=True)
+        return
+
+    await db.set_world(event_id, world)
+    event = await db.get_event(event_id)
+    await _refresh_message(event)
+
+    priority = await db.get_signups(event_id, db.PRIORITY)
+    dm_failed = []
+    for row in priority:
+        member = interaction.guild.get_member(row["user_id"])
+        if member is None:
+            dm_failed.append(row["username"])
+            continue
+        try:
+            await member.send(f"Raid world is {world} {member.mention}")
+        except discord.Forbidden:
+            dm_failed.append(row["username"])
+
+    summary = f"World set to **{world}**. Notified {len(priority) - len(dm_failed)}/{len(priority)} priority members."
+    if dm_failed:
+        summary += f"\nCouldn't DM: {', '.join(dm_failed)} (they may have DMs closed)."
+    await interaction.response.send_message(summary, ephemeral=True)
+
+
 @tasks.loop(minutes=1)
 async def refresh_countdowns():
     """Periodically re-render the 'Time Left' field on every active event."""

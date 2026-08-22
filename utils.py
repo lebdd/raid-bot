@@ -55,7 +55,8 @@ def build_event_embed(event, accepted_signups, priority_signups) -> discord.Embe
     embed.add_field(name="Time Left", value=time_left_value, inline=True)
 
     # invisible 3rd column that fills out row 1 (Discord groups inline fields 3-per-row), so
-    # Accepted/Priority automatically start a fresh 2-column row right after with no extra gap
+    # Accepted/Priority start a fresh 2-column row right after with no extra gap. World is
+    # intentionally NOT shown here — it's private info sent only via DM to Priority members.
     embed.add_field(name="\u200b", value="\u200b", inline=True)
 
     accepted_names = [s["username"] for s in accepted_signups]
