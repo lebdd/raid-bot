@@ -57,7 +57,7 @@ event_group = app_commands.Group(name="event", description="Manage Overworld gro
 async def on_ready():
     logger.info(f"Logged in as {bot.user} ({bot.user.id})")
     await bot.change_presence(
-        activity=discord.Activity(type=discord.ActivityType.listening, name="Sending you raid info!")
+        activity=discord.CustomActivity(name="Serving The White Vanguard!")
     )
 
 
