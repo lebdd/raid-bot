@@ -58,10 +58,16 @@ def build_event_embed(event, accepted_signups, priority_signups) -> discord.Embe
     """
     event: aiosqlite.Row with columns id, title, description, start_ts, creator_id, closed
     accepted_signups / priority_signups: list of aiosqlite.Row with columns user_id, username
+
+    Note: Discord's embed *title* slot never renders markdown (no #, no bold —
+    that's a platform limitation, not something we can configure). To let the
+    title support headers, we don't use that slot at all — instead the title
+    is folded into the description as a real '# Header' line, which Discord's
+    description field does render as markdown.
     """
+    combined_text = f"# {event['title']}\n\n{event['description']}"
     embed = discord.Embed(
-        title=event["title"],
-        description=event["description"],
+        description=combined_text,
         color=ACCENT_COLOR,
     )
 
