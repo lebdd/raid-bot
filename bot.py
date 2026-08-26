@@ -14,8 +14,6 @@ Requires DISCORD_TOKEN in the environment (see .env.example).
 
 import os
 import logging
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 import discord
 from discord import app_commands
@@ -25,12 +23,11 @@ from dotenv import load_dotenv
 import database as db
 import utils
 from views import SignupView
+from modals import EventCreateModal
 
 load_dotenv()
 
 TOKEN = os.environ.get("DISCORD_TOKEN")
-TZ_NAME = os.environ.get("TIMEZONE", "Europe/Stockholm")
-TZ = ZoneInfo(TZ_NAME)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("eventbot")
@@ -61,54 +58,9 @@ async def on_ready():
     )
 
 
-def parse_start_datetime(date_str: str, time_str: str) -> int:
-    """
-    date_str: 'YYYY-MM-DD'
-    time_str: 'HH:MM' (24h)
-    Interpreted in TZ_NAME, returned as a unix timestamp (UTC).
-    Raises ValueError on bad input.
-    """
-    naive = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
-    localized = naive.replace(tzinfo=TZ)
-    return int(localized.timestamp())
-
-
 @event_group.command(name="create", description="Create a new signup event")
-@app_commands.describe(
-    title="Event title",
-    description="Event description",
-    date="Start date, format YYYY-MM-DD",
-    time="Start time (24h), format HH:MM",
-)
-async def event_create(interaction: discord.Interaction, title: str, description: str, date: str, time: str):
-    try:
-        start_ts = parse_start_datetime(date, time)
-    except ValueError:
-        await interaction.response.send_message(
-            "Couldn't parse that date/time. Use `YYYY-MM-DD` for date and `HH:MM` (24h) for time, "
-            f"e.g. `2026-08-25` and `19:30`. Times are interpreted as {TZ_NAME}.",
-            ephemeral=True,
-        )
-        return
-
-    event_id = await db.create_event(
-        guild_id=interaction.guild_id,
-        channel_id=interaction.channel_id,
-        title=title,
-        description=description,
-        start_ts=start_ts,
-        creator_id=interaction.user.id,
-    )
-
-    event = await db.get_event(event_id)
-    accepted = await db.get_signups(event_id, db.ACCEPTED)
-    priority = await db.get_signups(event_id, db.PRIORITY)
-    embed = utils.build_event_embed(event, accepted, priority)
-    view = SignupView()
-
-    await interaction.response.send_message(embed=embed, view=view)
-    sent_message = await interaction.original_response()
-    await db.set_message_id(event_id, sent_message.id)
+async def event_create(interaction: discord.Interaction):
+    await interaction.response.send_modal(EventCreateModal())
 
 
 @event_group.command(name="list", description="List active events in this server")

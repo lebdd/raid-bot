@@ -2,10 +2,29 @@
 Helpers for building the event embed and formatting the countdown.
 """
 
+import os
 import time
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
 import discord
 
 ACCENT_COLOR = 0x5865F2  # discord blurple; change to taste
+
+TZ_NAME = os.environ.get("TIMEZONE", "Europe/Stockholm")
+TZ = ZoneInfo(TZ_NAME)
+
+
+def parse_start_datetime(date_str: str, time_str: str) -> int:
+    """
+    date_str: 'YYYY-MM-DD'
+    time_str: 'HH:MM' (24h)
+    Interpreted in TZ_NAME, returned as a unix timestamp (UTC).
+    Raises ValueError on bad input.
+    """
+    naive = datetime.strptime(f"{date_str.strip()} {time_str.strip()}", "%Y-%m-%d %H:%M")
+    localized = naive.replace(tzinfo=TZ)
+    return int(localized.timestamp())
 
 
 def format_time_left(start_ts: int) -> str:
